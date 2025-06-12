@@ -24,8 +24,7 @@ const STATUS = {
 } as const;
 type GameStatusType = (typeof STATUS)[keyof typeof STATUS];
 
-const posEquals = (a: Point, b: [number, number]) =>
-  a[0] === b[0] && a[1] === b[1];
+const posEquals = (a: Point, b: Point) => a[0] === b[0] && a[1] === b[1];
 
 export class SnakeEngine {
   private grid: CellType[][];
@@ -100,6 +99,15 @@ export class SnakeEngine {
   }
 
   changeDirection(dir: DireactionType) {
+    if (
+      (dir === DIRECTION.UP && this.snake[1][0] === this.snake[0][0] - 1) ||
+      (dir === DIRECTION.DOWN && this.snake[1][0] === this.snake[0][0] + 1) ||
+      (dir === DIRECTION.LEFT && this.snake[1][1] === this.snake[0][1] - 1) ||
+      (dir === DIRECTION.RIGHT && this.snake[1][1] === this.snake[0][1] + 1)
+    ) {
+      return;
+    }
+
     this.direction = dir;
   }
 
