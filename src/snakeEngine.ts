@@ -63,27 +63,23 @@ export class SnakeEngine {
     return grid;
   }
 
-  private updateGrid() {
-    this.grid[this.food[0]][this.food[1]] = CT.FOOD;
-    this.grid[this.snake[0][0]][this.snake[0][1]] = CT.HEAD;
-
-    for (let i = 1; i < this.snake.length; i++) {
-      this.grid[this.snake[i][0]][this.snake[i][1]] = CT.BODY;
-    }
-  }
-
   constructor(gridH: number = 16, gridW: number = 16) {
     this.grid = SnakeEngine.initEmptyGrid(gridH, gridW);
 
     const snakeHead: Point = [Math.floor(this.grid.length / 2), 4];
     this.snake = [snakeHead, [snakeHead[0], snakeHead[1] - 1]];
 
+    this.grid[snakeHead[0]][snakeHead[1]] = CT.HEAD;
+    for (let i = 1; i < this.snake.length; i++) {
+      this.grid[this.snake[i][0]][this.snake[i][1]] = CT.BODY;
+    }
+
     this.food = [snakeHead[0], snakeHead[1] + 4];
+    this.grid[this.food[0]][this.food[1]] = CT.FOOD;
+
     this.direction = DIRECTION.RIGHT;
 
     this.status = STATUS.GAME_ON;
-
-    this.updateGrid();
   }
 
   getGrid() {
@@ -129,29 +125,45 @@ export class SnakeEngine {
     this.grid[newFoodPos[0]][newFoodPos[1]] = CT.FOOD;
   }
 
-  private recalculateSnake() {
+  private calculateSnakeMove(): boolean {
     const headPos = this.snake[0].slice() as Point;
 
     switch (this.direction) {
-      case "up":
+      case DIRECTION.UP:
         headPos[0] -= 1;
         break;
-      case "down":
+      case DIRECTION.DOWN:
         headPos[0] += 1;
         break;
-      case "left":
+      case DIRECTION.LEFT:
         headPos[1] -= 1;
         break;
-      case "right":
+      case DIRECTION.RIGHT:
         headPos[1] += 1;
         break;
     }
 
     this.snake.unshift(headPos);
+    this.grid[this.snake[1][0]][this.snake[1][1]] = CT.BODY;
+
+    for (let i = 1; i < this.snake.length; i++) {
+      if (posEquals(this.snake[i], headPos)) {
+        return false;
+      }
+    }
+
+    if (this.grid[headPos[0]][headPos[1]] === CT.WALL) {
+      return false;
+    }
+
+    this.grid[headPos[0]][headPos[1]] = CT.HEAD;
+
     if (this.status !== STATUS.EATEN) {
       const toClear = this.snake.pop()!;
       this.grid[toClear[0]][toClear[1]] = CT.EMPTY;
     }
+
+    return true;
   }
 
   nextTick(): GameStatusType {
@@ -159,24 +171,12 @@ export class SnakeEngine {
       throw new Error("can't play after game over");
     }
 
-    this.recalculateSnake();
-
-    const headPos = this.snake[0];
-    for (let i = 1; i < this.snake.length; i++) {
-      if (posEquals(this.snake[i], headPos)) {
-        this.status = STATUS.GAME_OVER;
-        return this.status;
-      }
-    }
-
-    if (this.grid[headPos[0]][headPos[1]] === CT.WALL) {
+    if (!this.calculateSnakeMove()) {
       this.status = STATUS.GAME_OVER;
       return this.status;
     }
 
-    this.updateGrid();
-
-    if (posEquals(headPos, this.food)) {
+    if (posEquals(this.snake[0], this.food)) {
       this.status = STATUS.EATEN;
       this.generateNewFood();
     } else {
