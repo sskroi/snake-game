@@ -2,51 +2,89 @@ import { useEffect, useRef, useState } from "react";
 import { Board } from "./Board";
 import styles from "./SnakeGame.module.css";
 import { SnakeEngine } from "./snakeEngine";
+import { TransparentModal } from "./ui/TransparentModal";
 
 export const SnakeGame = () => {
-  const snakeEngineRef = useRef<SnakeEngine>(null);
-  if (snakeEngineRef.current === null) {
-    snakeEngineRef.current = new SnakeEngine();
+  const engine = useRef<SnakeEngine>(null);
+  if (engine.current === null) {
+    engine.current = new SnakeEngine();
   }
-  const engine = snakeEngineRef.current!;
-
-  const [grid, setGrid] = useState(() => engine.getGrid());
+  const [grid, setGrid] = useState(() => engine.current!.getGrid());
+  const [gameStatus, setGameStatus] = useState(() =>
+    engine.current!.getStatus(),
+  );
+  const [paused, setPaused] = useState(true);
+  const [bestScore, setBestScore] = useState(() =>
+    localStorage.getItem("bestScore"),
+  );
 
   useEffect(() => {
     const keyDownHandler = (ev: KeyboardEvent) => {
       switch (ev.key) {
         case "ArrowUp":
-          engine.changeDirection("up");
+          engine.current!.changeDirection("up");
           break;
         case "ArrowDown":
-          engine.changeDirection("down");
+          engine.current!.changeDirection("down");
           break;
         case "ArrowLeft":
-          engine.changeDirection("left");
+          engine.current!.changeDirection("left");
           break;
         case "ArrowRight":
-          engine.changeDirection("right");
+          engine.current!.changeDirection("right");
+          break;
+        case " ":
+          if (paused) {
+            engine.current = new SnakeEngine();
+            setGameStatus(engine.current.getStatus());
+            setPaused(false);
+          }
           break;
       }
     };
 
     document.addEventListener("keydown", keyDownHandler);
-
     return () => document.removeEventListener("keydown", keyDownHandler);
-  }, []);
+  }, [paused]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const status = engine.nextTick();
-      setGrid(engine.getGrid());
-    }, 166 * 2);
+    const tickHandler = () => {
+      if (engine.current!.getStatus() !== "gameOver" && !paused) {
+        const status = engine.current!.nextTick();
+        if (status === "gameOver") {
+          setPaused(true);
 
+          const score = engine.current!.getScore();
+          if (bestScore === null || score > +bestScore) {
+            setBestScore(score.toString());
+            localStorage.setItem("bestScore", score.toString());
+          }
+        }
+        setGrid(engine.current!.getGrid());
+        setGameStatus(status);
+      }
+    };
+
+    const interval = setInterval(tickHandler, 166);
     return () => clearInterval(interval);
-  }, []);
+  }, [paused, bestScore]);
 
   return (
     <main className={styles.snakeGame}>
       <Board grid={grid} />
+      <div className={styles.score}>SCORE: {engine.current!.getScore()}</div>
+      <TransparentModal open={paused}>
+        <div className={styles.modalText}>
+          {gameStatus === "gameOver" && (
+            <>
+              <p>GAME OVER </p>
+              <p>SCORE: {engine.current!.getScore()}</p>
+              {bestScore !== undefined && <p>BEST SCORE: {bestScore}</p>}
+            </>
+          )}
+          <p>Press SPACE to start</p>
+        </div>
+      </TransparentModal>
     </main>
   );
 };

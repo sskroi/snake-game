@@ -13,8 +13,6 @@ interface FlatCell {
 }
 
 export const Board: FC<BoardProps> = ({ grid }) => {
-  console.log(grid);
-
   const flatCells: FlatCell[] = [];
 
   for (let i = 0; i < grid.length; i++) {
