@@ -94,6 +94,14 @@ export class SnakeEngine {
     });
   }
 
+  getStatus() {
+    return this.status;
+  }
+
+  getScore() {
+    return this.snake.length - 2;
+  }
+
   changeDirection(dir: DireactionType) {
     if (
       (dir === DIRECTION.UP && this.snake[1][0] === this.snake[0][0] - 1) ||
@@ -125,7 +133,11 @@ export class SnakeEngine {
     this.grid[newFoodPos[0]][newFoodPos[1]] = CT.FOOD;
   }
 
-  private calculateSnakeMove(): boolean {
+  nextTick(): GameStatusType {
+    if (this.status === STATUS.GAME_OVER) {
+      throw new Error("can't play after game over");
+    }
+
     const headPos = this.snake[0].slice() as Point;
 
     switch (this.direction) {
@@ -146,42 +158,26 @@ export class SnakeEngine {
     this.snake.unshift(headPos);
     this.grid[this.snake[1][0]][this.snake[1][1]] = CT.BODY;
 
-    for (let i = 1; i < this.snake.length; i++) {
-      if (posEquals(this.snake[i], headPos)) {
-        return false;
-      }
-    }
-
-    if (this.grid[headPos[0]][headPos[1]] === CT.WALL) {
-      return false;
-    }
-
-    this.grid[headPos[0]][headPos[1]] = CT.HEAD;
-
-    if (this.status !== STATUS.EATEN) {
-      const toClear = this.snake.pop()!;
-      this.grid[toClear[0]][toClear[1]] = CT.EMPTY;
-    }
-
-    return true;
-  }
-
-  nextTick(): GameStatusType {
-    if (this.status === STATUS.GAME_OVER) {
-      throw new Error("can't play after game over");
-    }
-
-    if (!this.calculateSnakeMove()) {
-      this.status = STATUS.GAME_OVER;
-      return this.status;
-    }
-
-    if (posEquals(this.snake[0], this.food)) {
+    if (posEquals(headPos, this.food)) {
       this.status = STATUS.EATEN;
       this.generateNewFood();
     } else {
       this.status = STATUS.GAME_ON;
+      const toClear = this.snake.pop()!;
+      this.grid[toClear[0]][toClear[1]] = CT.EMPTY;
     }
+
+    for (let i = 1; i < this.snake.length; i++) {
+      if (posEquals(this.snake[i], headPos)) {
+        this.status = STATUS.GAME_OVER;
+      }
+    }
+
+    if (this.grid[headPos[0]][headPos[1]] === CT.WALL) {
+      this.status = STATUS.GAME_OVER;
+    }
+
+    this.grid[headPos[0]][headPos[1]] = CT.HEAD;
 
     return this.status;
   }
