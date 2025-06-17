@@ -7,9 +7,22 @@
   grid-gap: 1px;
   grid-auto-flow: dense;
 
-  width: 600px;
-  height: 600px;
+  width: 40vw;
+  height: auto;
 }
+
+@media (max-width: 992px) {
+  .board {
+    width: 70vw
+  }
+}
+
+@media (max-width: 768px) {
+  .board {
+    width: 96vw
+  }
+}
+
 
 .cell {
   background-color: gray;
@@ -32,4 +45,3 @@
   background-color: red;
   border-radius: 20px;
 }
-
