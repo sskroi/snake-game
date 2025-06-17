@@ -29,19 +29,19 @@ export const SnakeGame = () => {
       cellSize = 40;
     }
 
-    let height = window.innerHeight - 140;
+    const height = window.innerHeight - 140;
 
     const cols = Math.floor(width / cellSize);
     const rows = Math.floor(height / cellSize);
 
-    setSizeData({
-      ...sizeData,
+    setSizeData((s) => ({
+      ...s,
       cols,
       rows,
       h: cellSize * rows,
       w: cellSize * cols,
       cellSize,
-    });
+    }));
   }, []);
 
   useEffect(() => {

@@ -53,7 +53,12 @@ export const Board: FC<BoardProps> = ({ grid, cellSize, ...props }) => {
       for (let c = 0; c < cols; c++) {
         switch (grid[r][c]) {
           case "empty":
-            ctx.clearRect(c * cellSize + 1, r * cellSize + 1, cellSize - 2, cellSize - 2);
+            ctx.clearRect(
+              c * cellSize + 1,
+              r * cellSize + 1,
+              cellSize - 2,
+              cellSize - 2,
+            );
             break;
           case "body":
             drawRect("#6CD757", c, r);
@@ -67,13 +72,14 @@ export const Board: FC<BoardProps> = ({ grid, cellSize, ...props }) => {
         }
       }
     }
-  }, [grid]);
+  }, [grid, cellSize]);
 
   useEffect(() => {
     if (!grid) return;
 
     const ctx = canvasRef.current!.getContext("2d")!;
     renderGrid(ctx, cellSize, grid.length, grid[0].length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cellSize, grid?.length, grid?.[0].length]);
 
   return <canvas ref={canvasRef} className={styles.board} {...props}></canvas>;
