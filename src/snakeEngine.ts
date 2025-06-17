@@ -37,8 +37,9 @@ export class SnakeEngine {
     if (h < 10 || w < 10) {
       throw new Error("too small size of grid");
     }
-    h = (h | 1) + 2;
-    w = (w | 1) + 2;
+    // for walls
+    h += 2;
+    w += 2;
 
     const grid: CellType[][] = new Array(h);
     let i = 0,
@@ -127,7 +128,7 @@ export class SnakeEngine {
     }
 
     const newFoodPos =
-      candidates[Math.floor(Math.random() * (candidates.length + 1))];
+      candidates[Math.floor(Math.random() * candidates.length)];
 
     this.food = newFoodPos;
     this.grid[newFoodPos[0]][newFoodPos[1]] = CT.FOOD;
