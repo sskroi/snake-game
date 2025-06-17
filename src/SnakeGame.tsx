@@ -13,14 +13,43 @@ export const SnakeGame = () => {
     localStorage.getItem("bestScore"),
   );
 
-  const touchData = useRef({ startX: -1, startY: -1 });
+  const [sizeData, setSizeData] = useState({
+    w: 0,
+    h: 0,
+    rows: 0,
+    cols: 0,
+    cellSize: 40,
+  });
+  useEffect(() => {
+    let cellSize = 28;
+
+    let width = 0;
+    if ((width = window.innerWidth - 30) > 768) {
+      width = 800;
+      cellSize = 40;
+    }
+
+    let height = window.innerHeight - 140;
+
+    const cols = Math.floor(width / cellSize);
+    const rows = Math.floor(height / cellSize);
+
+    setSizeData({
+      ...sizeData,
+      cols,
+      rows,
+      h: cellSize * rows,
+      w: cellSize * cols,
+      cellSize,
+    });
+  }, []);
 
   useEffect(() => {
     const keyDownHandler = (ev: KeyboardEvent) => {
       switch (ev.key) {
         case " ":
           if (paused) {
-            engine.current = new SnakeEngine();
+            engine.current = new SnakeEngine(sizeData.rows, sizeData.cols);
             setGameStatus(engine.current.getStatus());
             setPaused(false);
           }
@@ -42,7 +71,7 @@ export const SnakeGame = () => {
 
     document.addEventListener("keydown", keyDownHandler);
     return () => document.removeEventListener("keydown", keyDownHandler);
-  }, [paused]);
+  }, [paused, sizeData]);
 
   useEffect(() => {
     const tickHandler = () => {
@@ -70,6 +99,7 @@ export const SnakeGame = () => {
     return () => clearInterval(interval);
   }, [paused, bestScore]);
 
+  const touchData = useRef({ startX: -1, startY: -1 });
   const touchStartHandler = (ev: React.TouchEvent) => {
     const touch = ev.changedTouches[0];
     touchData.current.startX = touch.clientX;
@@ -78,9 +108,10 @@ export const SnakeGame = () => {
 
   const touchEndHandler = (ev: React.TouchEvent) => {
     if (paused) {
-      engine.current = new SnakeEngine();
+      engine.current = new SnakeEngine(sizeData.rows, sizeData.cols);
       setGameStatus(engine.current.getStatus());
       setPaused(false);
+      return;
     }
 
     const touch = ev.changedTouches[0];
@@ -110,7 +141,12 @@ export const SnakeGame = () => {
       style={{ touchAction: "none" }}
       onTouchMove={(ev) => ev.preventDefault()}
     >
-      <Board grid={grid} />
+      <Board
+        grid={grid}
+        cellSize={sizeData.cellSize}
+        width={sizeData.w}
+        height={sizeData.h}
+      />
       <div className={styles.score}>SCORE: {engine.current?.getScore()}</div>
       <TransparentModal open={paused}>
         <div className={styles.modalText}>

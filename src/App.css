@@ -6,7 +6,7 @@
 
 #app {
   margin: 0 auto;
-  padding: 2rem;
+  padding: 2rem 2rem 1rem 2rem;
   text-align: center;
   min-height: 100vh;
 }
