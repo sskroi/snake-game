@@ -1,4 +1,4 @@
-type Point = [number, number];
+type Point = { r: number; c: number };
 
 const CT = {
   EMPTY: "empty",
@@ -7,7 +7,8 @@ const CT = {
   FOOD: "food",
   WALL: "wall",
 } as const;
-export type CellType = (typeof CT)[keyof typeof CT];
+type CellType = (typeof CT)[keyof typeof CT];
+export type ToRenderCell = { type: CellType } & Point;
 
 const DIRECTION = {
   UP: "up",
@@ -24,75 +25,36 @@ const STATUS = {
 } as const;
 type GameStatusType = (typeof STATUS)[keyof typeof STATUS];
 
-const posEquals = (a: Point, b: Point) => a[0] === b[0] && a[1] === b[1];
+const posEquals = (a: Point, b: Point) => a.r === b.r && a.c === b.c;
 
 export class SnakeEngine {
-  private grid: CellType[][];
+  readonly rows: number;
+  readonly cols: number;
   private snake: Point[];
   private food: Point;
+  private toRender: ToRenderCell[];
   private direction: DireactionType;
   private status: GameStatusType;
 
-  private static initEmptyGrid(h: number, w: number) {
-    if (h < 10 || w < 10) {
-      throw new Error("too small size of grid");
-    }
-    // for walls
-    h += 2;
-    w += 2;
-
-    const grid: CellType[][] = new Array(h);
-    let i = 0,
-      j = 0;
-    for (i = 0; i < h; i++) {
-      grid[i] = new Array(w);
-      for (j = 0; j < w; j++) {
-        grid[i][j] = CT.EMPTY;
-      }
+  constructor(rows: number, cols: number) {
+    if (rows < 5 || cols < 5) {
+      throw new Error("Too small snake grid size");
     }
 
-    // setup walls on border
-    for (i = 0; i < h; i++) {
-      grid[i][0] = CT.WALL;
-      grid[i][w - 1] = CT.WALL;
-    }
-    for (j = 1; j < w; j++) {
-      grid[0][j] = CT.WALL;
-      grid[h - 1][j] = CT.WALL;
-    }
+    this.rows = rows;
+    this.cols = cols;
 
-    return grid;
-  }
+    const snakeHead: Point = { r: Math.floor(rows / 2), c: cols <= 6 ? 1 : 2 };
+    this.snake = [snakeHead, { r: snakeHead.r, c: snakeHead.c - 1 }];
 
-  constructor(gridH: number = 16, gridW: number = 16) {
-    this.grid = SnakeEngine.initEmptyGrid(gridH, gridW);
-
-    const snakeHead: Point = [Math.floor(this.grid.length / 2), 4];
-    this.snake = [snakeHead, [snakeHead[0], snakeHead[1] - 1]];
-
-    this.grid[snakeHead[0]][snakeHead[1]] = CT.HEAD;
-    for (let i = 1; i < this.snake.length; i++) {
-      this.grid[this.snake[i][0]][this.snake[i][1]] = CT.BODY;
-    }
-
-    this.food = [snakeHead[0], snakeHead[1] + 4];
-    this.grid[this.food[0]][this.food[1]] = CT.FOOD;
-
+    this.food = { r: snakeHead.r, c: snakeHead.c + (cols <= 6 ? 2 : 3) };
     this.direction = DIRECTION.RIGHT;
-
     this.status = STATUS.GAME_ON;
-  }
-
-  getGrid() {
-    const grid = this.grid.slice();
-    grid.shift();
-    grid.pop();
-    return grid.map((v) => {
-      const newV = v.slice();
-      newV.shift();
-      newV.pop();
-      return newV;
-    });
+    this.toRender = [
+      { ...this.food, type: CT.FOOD },
+      { ...snakeHead, type: CT.HEAD },
+      { ...this.snake[1], type: CT.BODY },
+    ];
   }
 
   getStatus() {
@@ -100,15 +62,19 @@ export class SnakeEngine {
   }
 
   getScore() {
-    return this.snake.length - 2;
+    return Math.max(this.snake.length - 2, 0);
+  }
+
+  getToRender() {
+    return this.toRender.slice();
   }
 
   changeDirection(dir: DireactionType) {
     if (
-      (dir === DIRECTION.UP && this.snake[1][0] === this.snake[0][0] - 1) ||
-      (dir === DIRECTION.DOWN && this.snake[1][0] === this.snake[0][0] + 1) ||
-      (dir === DIRECTION.LEFT && this.snake[1][1] === this.snake[0][1] - 1) ||
-      (dir === DIRECTION.RIGHT && this.snake[1][1] === this.snake[0][1] + 1)
+      (dir === DIRECTION.UP && this.snake[1].r === this.snake[0].r - 1) ||
+      (dir === DIRECTION.DOWN && this.snake[1].r === this.snake[0].r + 1) ||
+      (dir === DIRECTION.LEFT && this.snake[1].c === this.snake[0].c - 1) ||
+      (dir === DIRECTION.RIGHT && this.snake[1].c === this.snake[0].c + 1)
     ) {
       return;
     }
@@ -116,22 +82,26 @@ export class SnakeEngine {
     this.direction = dir;
   }
 
+  private unshiftSnake(v: Point) {
+    this.snake.unshift(v);
+    this.toRender.push({ ...v, type: CT.HEAD });
+  }
+
   private generateNewFood() {
-    const candidates: Point[] = [];
+    let candidate: Point;
 
-    for (let i = 0; i < this.grid.length; i++) {
-      for (let j = 0; j < this.grid[0].length; j++) {
-        if (this.grid[i][j] === CT.EMPTY) {
-          candidates.push([i, j]);
-        }
-      }
-    }
+    const randValue = (maxValue: number) =>
+      Math.floor(Math.random() * maxValue);
 
-    const newFoodPos =
-      candidates[Math.floor(Math.random() * candidates.length)];
+    do {
+      candidate = { r: randValue(this.rows), c: randValue(this.cols) };
+    } while (
+      this.snake.some((v) => posEquals(v, candidate)) ||
+      posEquals(this.food, candidate)
+    );
 
-    this.food = newFoodPos;
-    this.grid[newFoodPos[0]][newFoodPos[1]] = CT.FOOD;
+    this.food = candidate;
+    this.toRender.push({ ...candidate, type: CT.FOOD });
   }
 
   nextTick(): GameStatusType {
@@ -139,46 +109,51 @@ export class SnakeEngine {
       throw new Error("can't play after game over");
     }
 
-    const headPos = this.snake[0].slice() as Point;
+    this.toRender.length = 0;
+
+    const headPos: Point = { ...this.snake[0] };
 
     switch (this.direction) {
       case DIRECTION.UP:
-        headPos[0] -= 1;
+        headPos.r -= 1;
         break;
       case DIRECTION.DOWN:
-        headPos[0] += 1;
+        headPos.r += 1;
         break;
       case DIRECTION.LEFT:
-        headPos[1] -= 1;
+        headPos.c -= 1;
         break;
       case DIRECTION.RIGHT:
-        headPos[1] += 1;
+        headPos.c += 1;
         break;
     }
 
-    this.snake.unshift(headPos);
-    this.grid[this.snake[1][0]][this.snake[1][1]] = CT.BODY;
+    this.toRender.push({ ...this.snake[0], type: CT.BODY });
 
     if (posEquals(headPos, this.food)) {
       this.status = STATUS.EATEN;
       this.generateNewFood();
     } else {
       this.status = STATUS.GAME_ON;
-      const toClear = this.snake.pop()!;
-      this.grid[toClear[0]][toClear[1]] = CT.EMPTY;
+      this.toRender.push({ ...this.snake.pop()!, type: CT.EMPTY });
     }
 
-    for (let i = 1; i < this.snake.length; i++) {
-      if (posEquals(this.snake[i], headPos)) {
-        this.status = STATUS.GAME_OVER;
+    if (
+      headPos.r < 0 ||
+      headPos.r >= this.rows ||
+      headPos.c < 0 ||
+      headPos.c >= this.cols
+    ) {
+      return (this.status = STATUS.GAME_OVER);
+    }
+
+    for (const v of this.snake) {
+      if (posEquals(v, headPos)) {
+        return (this.status = STATUS.GAME_OVER);
       }
     }
 
-    if (this.grid[headPos[0]][headPos[1]] === CT.WALL) {
-      this.status = STATUS.GAME_OVER;
-    }
-
-    this.grid[headPos[0]][headPos[1]] = CT.HEAD;
+    this.unshiftSnake(headPos);
 
     return this.status;
   }

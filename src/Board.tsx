@@ -1,10 +1,12 @@
 import { useEffect, useRef, type CanvasHTMLAttributes, type FC } from "react";
 import styles from "./Board.module.css";
-import type { CellType } from "./snakeEngine";
+import type { ToRenderCell } from "./snakeEngine";
 
 interface BoardProps extends CanvasHTMLAttributes<HTMLCanvasElement> {
-  grid: CellType[][] | undefined;
+  toRender: ToRenderCell[] | undefined;
   cellSize: number;
+  rows: number;
+  cols: number;
 }
 
 const renderGrid = (
@@ -29,15 +31,19 @@ const renderGrid = (
   }
 };
 
-export const Board: FC<BoardProps> = ({ grid, cellSize, ...props }) => {
+export const Board: FC<BoardProps> = ({
+  toRender,
+  cellSize,
+  rows,
+  cols,
+  ...props
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!grid) return;
+    if (!toRender) return;
 
     const ctx = canvasRef.current!.getContext("2d")!;
-    const rows = grid.length;
-    const cols = grid[0].length;
 
     const drawRect = (color: string, row: number, col: number) => {
       ctx.fillStyle = color;
@@ -49,38 +55,41 @@ export const Board: FC<BoardProps> = ({ grid, cellSize, ...props }) => {
       );
     };
 
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        switch (grid[r][c]) {
-          case "empty":
-            ctx.clearRect(
-              c * cellSize + 1,
-              r * cellSize + 1,
-              cellSize - 2,
-              cellSize - 2,
-            );
-            break;
-          case "body":
-            drawRect("#6CD757", c, r);
-            break;
-          case "head":
-            drawRect("#B7D53E", c, r);
-            break;
-          case "food":
-            drawRect("#E96929", c, r);
-            break;
-        }
+    for (const v of toRender) {
+      switch (v.type) {
+        case "empty":
+          ctx.clearRect(
+            v.c * cellSize + 1,
+            v.r * cellSize + 1,
+            cellSize - 2,
+            cellSize - 2,
+          );
+          break;
+        case "body":
+          drawRect("#6CD757", v.c, v.r);
+          break;
+        case "head":
+          drawRect("#B7D53E", v.c, v.r);
+          break;
+        case "food":
+          drawRect("#E96929", v.c, v.r);
+          break;
       }
     }
-  }, [grid, cellSize]);
+  }, [toRender, cellSize]);
 
   useEffect(() => {
-    if (!grid) return;
-
     const ctx = canvasRef.current!.getContext("2d")!;
-    renderGrid(ctx, cellSize, grid.length, grid[0].length);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cellSize, grid?.length, grid?.[0].length]);
+    renderGrid(ctx, cellSize, rows, cols);
+  }, [cellSize, rows, cols]);
 
-  return <canvas ref={canvasRef} className={styles.board} {...props}></canvas>;
+  return (
+    <canvas
+      ref={canvasRef}
+      className={styles.board}
+      height={rows * cellSize}
+      width={cols * cellSize}
+      {...props}
+    ></canvas>
+  );
 };

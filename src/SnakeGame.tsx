@@ -1,21 +1,20 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Board } from "./Board";
 import styles from "./SnakeGame.module.css";
-import { SnakeEngine } from "./snakeEngine";
+import { SnakeEngine, type ToRenderCell } from "./snakeEngine";
 import { TransparentModal } from "./ui/TransparentModal";
 
 export const SnakeGame = () => {
   const engine = useRef<SnakeEngine>(null);
-  const [grid, setGrid] = useState(() => engine.current?.getGrid());
+  const [toRender, setToRender] = useState<ToRenderCell[]>([]);
   const [gameStatus, setGameStatus] = useState("");
   const [paused, setPaused] = useState(true);
   const [bestScore, setBestScore] = useState(() =>
     localStorage.getItem("bestScore"),
   );
+  const [tryCount, setTryCount] = useState(1);
 
   const [sizeData, setSizeData] = useState({
-    w: 0,
-    h: 0,
     rows: 0,
     cols: 0,
     cellSize: 40,
@@ -38,20 +37,24 @@ export const SnakeGame = () => {
       ...s,
       cols,
       rows,
-      h: cellSize * rows,
-      w: cellSize * cols,
       cellSize,
     }));
   }, []);
+
+  const restart = useCallback(() => {
+    engine.current = new SnakeEngine(sizeData.rows, sizeData.cols);
+    setGameStatus(engine.current.getStatus());
+    setToRender(engine.current.getToRender());
+    setPaused(false);
+    setTryCount((s) => s + 1);
+  }, [sizeData.rows, sizeData.cols]);
 
   useEffect(() => {
     const keyDownHandler = (ev: KeyboardEvent) => {
       switch (ev.key) {
         case " ":
           if (paused) {
-            engine.current = new SnakeEngine(sizeData.rows, sizeData.cols);
-            setGameStatus(engine.current.getStatus());
-            setPaused(false);
+            restart();
           }
           break;
         case "ArrowUp":
@@ -71,7 +74,7 @@ export const SnakeGame = () => {
 
     document.addEventListener("keydown", keyDownHandler);
     return () => document.removeEventListener("keydown", keyDownHandler);
-  }, [paused, sizeData]);
+  }, [paused, sizeData, restart]);
 
   useEffect(() => {
     const tickHandler = () => {
@@ -90,12 +93,12 @@ export const SnakeGame = () => {
             localStorage.setItem("bestScore", score.toString());
           }
         }
-        setGrid(engine.current.getGrid());
+        setToRender(engine.current.getToRender());
         setGameStatus(status);
       }
     };
 
-    const interval = setInterval(tickHandler, 166);
+    const interval = setInterval(tickHandler, 140);
     return () => clearInterval(interval);
   }, [paused, bestScore]);
 
@@ -108,9 +111,7 @@ export const SnakeGame = () => {
 
   const touchEndHandler = (ev: React.TouchEvent) => {
     if (paused) {
-      engine.current = new SnakeEngine(sizeData.rows, sizeData.cols);
-      setGameStatus(engine.current.getStatus());
-      setPaused(false);
+      restart();
       return;
     }
 
@@ -142,10 +143,11 @@ export const SnakeGame = () => {
       onTouchMove={(ev) => ev.preventDefault()}
     >
       <Board
-        grid={grid}
+        key={tryCount.toString()}
+        toRender={toRender}
         cellSize={sizeData.cellSize}
-        width={sizeData.w}
-        height={sizeData.h}
+        rows={sizeData.rows}
+        cols={sizeData.cols}
       />
       <div className={styles.score}>SCORE: {engine.current?.getScore()}</div>
       <TransparentModal open={paused}>
