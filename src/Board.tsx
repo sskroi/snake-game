@@ -90,6 +90,6 @@ export const Board: FC<BoardProps> = ({
       height={rows * cellSize}
       width={cols * cellSize}
       {...props}
-    ></canvas>
+    />
   );
 };

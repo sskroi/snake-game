@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Board } from "./Board";
 import styles from "./SnakeGame.module.css";
-import { SnakeEngine, type ToRenderCell } from "./snakeEngine";
+import {
+  SnakeEngine,
+  type SnakeDireactionType,
+  type ToRenderCell,
+} from "./snakeEngine";
 import { TransparentModal } from "./ui/TransparentModal";
 
 export const SnakeGame = () => {
@@ -17,28 +21,13 @@ export const SnakeGame = () => {
   const [sizeData, setSizeData] = useState({
     rows: 0,
     cols: 0,
-    cellSize: 40,
+    cellSize: 0,
   });
+
   useEffect(() => {
-    let cellSize = 28;
+    const sizeData = calcBoardSize(window.innerWidth, window.innerHeight);
 
-    let width = 0;
-    if ((width = window.innerWidth - 30) > 768) {
-      width = 800;
-      cellSize = 40;
-    }
-
-    const height = window.innerHeight - 140;
-
-    const cols = Math.floor(width / cellSize);
-    const rows = Math.floor(height / cellSize);
-
-    setSizeData((s) => ({
-      ...s,
-      cols,
-      rows,
-      cellSize,
-    }));
+    setSizeData(sizeData);
   }, []);
 
   const restart = useCallback(() => {
@@ -103,33 +92,43 @@ export const SnakeGame = () => {
   }, [paused, bestScore]);
 
   const touchData = useRef({ startX: -1, startY: -1 });
+
   const touchStartHandler = (ev: React.TouchEvent) => {
     const touch = ev.changedTouches[0];
     touchData.current.startX = touch.clientX;
     touchData.current.startY = touch.clientY;
   };
 
-  const touchEndHandler = (ev: React.TouchEvent) => {
+  const touchEndHandler = () => {
     if (paused) {
       restart();
-      return;
     }
+  };
 
+  const touchMoveHandler = (ev: React.TouchEvent) => {
+    ev.preventDefault();
     const touch = ev.changedTouches[0];
     const dx = touch.clientX - touchData.current.startX;
     const dy = touch.clientY - touchData.current.startY;
+    const threshold = 30;
+
+    const changeDirection = (dir: SnakeDireactionType) => {
+      engine.current?.changeDirection(dir);
+      touchData.current.startX = touch.clientX;
+      touchData.current.startY = touch.clientY;
+    };
 
     if (Math.abs(dx) > Math.abs(dy)) {
-      if (dx > 10) {
-        engine.current?.changeDirection("right");
-      } else if (dx < -10) {
-        engine.current?.changeDirection("left");
+      if (dx > threshold) {
+        changeDirection("right");
+      } else if (dx < -threshold) {
+        changeDirection("left");
       }
     } else {
-      if (dy > 10) {
-        engine.current?.changeDirection("down");
-      } else if (dy < -10) {
-        engine.current?.changeDirection("up");
+      if (dy > threshold) {
+        changeDirection("down");
+      } else if (dy < -threshold) {
+        changeDirection("up");
       }
     }
   };
@@ -138,9 +137,9 @@ export const SnakeGame = () => {
     <main
       className={styles.snakeGame}
       onTouchStart={touchStartHandler}
+      onTouchMove={touchMoveHandler}
       onTouchEnd={touchEndHandler}
       style={{ touchAction: "none" }}
-      onTouchMove={(ev) => ev.preventDefault()}
     >
       <Board
         key={tryCount.toString()}
@@ -165,3 +164,30 @@ export const SnakeGame = () => {
     </main>
   );
 };
+
+function calcBoardSize(windowWidth: number, windowHeight: number) {
+  let cellSize = -1;
+  let width = windowWidth;
+  let height = windowHeight;
+
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+
+  if (width > 992) {
+    width = Math.floor(width * 0.5);
+    cellSize = 40;
+    height -= 100;
+  } else if (width > 768) {
+    width = Math.floor(width * 0.85);
+    cellSize = 32;
+    height -= 80;
+  } else {
+    width = width - rem - 4;
+    cellSize = 28;
+    height -= 60;
+  }
+
+  const cols = Math.floor(width / cellSize);
+  const rows = Math.floor(height / cellSize);
+
+  return { rows, cols, cellSize };
+}

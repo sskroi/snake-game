@@ -16,7 +16,7 @@ const DIRECTION = {
   LEFT: "left",
   RIGHT: "right",
 } as const;
-type DireactionType = (typeof DIRECTION)[keyof typeof DIRECTION];
+export type SnakeDireactionType = (typeof DIRECTION)[keyof typeof DIRECTION];
 
 const STATUS = {
   GAME_ON: "gameOn",
@@ -33,7 +33,7 @@ export class SnakeEngine {
   private snake: Point[];
   private food: Point;
   private toRender: ToRenderCell[];
-  private direction: DireactionType;
+  private direction: SnakeDireactionType;
   private status: GameStatusType;
 
   constructor(rows: number, cols: number) {
@@ -69,7 +69,7 @@ export class SnakeEngine {
     return this.toRender.slice();
   }
 
-  changeDirection(dir: DireactionType) {
+  changeDirection(dir: SnakeDireactionType) {
     if (
       (dir === DIRECTION.UP && this.snake[1].r === this.snake[0].r - 1) ||
       (dir === DIRECTION.DOWN && this.snake[1].r === this.snake[0].r + 1) ||
@@ -93,6 +93,7 @@ export class SnakeEngine {
     const randValue = (maxValue: number) =>
       Math.floor(Math.random() * maxValue);
 
+    // need to rework
     do {
       candidate = { r: randValue(this.rows), c: randValue(this.cols) };
     } while (
