@@ -16,7 +16,7 @@ const DIRECTION = {
   LEFT: "left",
   RIGHT: "right",
 } as const;
-export type SnakeDireactionType = (typeof DIRECTION)[keyof typeof DIRECTION];
+export type DireactionType = (typeof DIRECTION)[keyof typeof DIRECTION];
 
 const STATUS = {
   GAME_ON: "gameOn",
@@ -24,6 +24,13 @@ const STATUS = {
   EATEN: "eaten",
 } as const;
 type GameStatusType = (typeof STATUS)[keyof typeof STATUS];
+
+const OPPOSITE_DIRECTIONS: Record<DireactionType, DireactionType> = {
+  [DIRECTION.UP]: DIRECTION.DOWN,
+  [DIRECTION.DOWN]: DIRECTION.UP,
+  [DIRECTION.LEFT]: DIRECTION.RIGHT,
+  [DIRECTION.RIGHT]: DIRECTION.LEFT,
+};
 
 const posEquals = (a: Point, b: Point) => a.r === b.r && a.c === b.c;
 
@@ -33,7 +40,7 @@ export class SnakeEngine {
   private snake: Point[];
   private food: Point;
   private toRender: ToRenderCell[];
-  private direction: SnakeDireactionType;
+  private direction: DireactionType;
   private status: GameStatusType;
 
   constructor(rows: number, cols: number) {
@@ -69,17 +76,10 @@ export class SnakeEngine {
     return this.toRender.slice();
   }
 
-  changeDirection(dir: SnakeDireactionType) {
-    if (
-      (dir === DIRECTION.UP && this.snake[1].r === this.snake[0].r - 1) ||
-      (dir === DIRECTION.DOWN && this.snake[1].r === this.snake[0].r + 1) ||
-      (dir === DIRECTION.LEFT && this.snake[1].c === this.snake[0].c - 1) ||
-      (dir === DIRECTION.RIGHT && this.snake[1].c === this.snake[0].c + 1)
-    ) {
-      return;
+  changeDirection(newDirection: DireactionType) {
+    if (OPPOSITE_DIRECTIONS[newDirection] !== this.direction) {
+      this.direction = newDirection;
     }
-
-    this.direction = dir;
   }
 
   private unshiftSnake(v: Point) {
@@ -88,30 +88,22 @@ export class SnakeEngine {
   }
 
   private generateNewFood() {
-    let candidate: Point;
+    let candidates: Point[] = [];
 
-    const randValue = (maxValue: number) =>
-      Math.floor(Math.random() * maxValue);
-
-    // need to rework
-    do {
-      candidate = { r: randValue(this.rows), c: randValue(this.cols) };
-    } while (
-      this.snake.some((v) => posEquals(v, candidate)) ||
-      posEquals(this.food, candidate)
-    );
-
-    this.food = candidate;
-    this.toRender.push({ ...candidate, type: CT.FOOD });
-  }
-
-  nextTick(): GameStatusType {
-    if (this.status === STATUS.GAME_OVER) {
-      throw new Error("can't play after game over");
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        var cand = { r, c };
+        if (!this.isSnakeCell(cand) && !posEquals(cand, this.food)) {
+          candidates.push(cand);
+        }
+      }
     }
 
-    this.toRender.length = 0;
+    this.food = candidates[Math.floor(Math.random() * candidates.length)];
+    this.toRender.push({ ...this.food, type: CT.FOOD });
+  }
 
+  private calcNewHeadPos() {
     const headPos: Point = { ...this.snake[0] };
 
     switch (this.direction) {
@@ -129,6 +121,29 @@ export class SnakeEngine {
         break;
     }
 
+    return headPos;
+  }
+
+  private isOutOfBounds(p: Point) {
+    if (p.r < 0 || p.r >= this.rows || p.c < 0 || p.c >= this.cols) {
+      return true;
+    }
+    return false;
+  }
+
+  private isSnakeCell(p: Point) {
+    return this.snake.some((v) => posEquals(p, v));
+  }
+
+  nextTick(): GameStatusType {
+    if (this.status === STATUS.GAME_OVER) {
+      throw new Error("can't play after game over");
+    }
+
+    this.toRender.length = 0;
+
+    const headPos = this.calcNewHeadPos();
+
     this.toRender.push({ ...this.snake[0], type: CT.BODY });
 
     if (posEquals(headPos, this.food)) {
@@ -139,19 +154,8 @@ export class SnakeEngine {
       this.toRender.push({ ...this.snake.pop()!, type: CT.EMPTY });
     }
 
-    if (
-      headPos.r < 0 ||
-      headPos.r >= this.rows ||
-      headPos.c < 0 ||
-      headPos.c >= this.cols
-    ) {
+    if (this.isOutOfBounds(headPos) || this.isSnakeCell(headPos)) {
       return (this.status = STATUS.GAME_OVER);
-    }
-
-    for (const v of this.snake) {
-      if (posEquals(v, headPos)) {
-        return (this.status = STATUS.GAME_OVER);
-      }
     }
 
     this.unshiftSnake(headPos);
