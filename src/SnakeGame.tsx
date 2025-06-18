@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Board } from "./Board";
 import styles from "./SnakeGame.module.css";
-import {
-  SnakeEngine,
-  type SnakeDireactionType,
-  type ToRenderCell,
-} from "./snakeEngine";
+import { SnakeEngine, type ToRenderCell } from "./snakeEngine";
 import { TransparentModal } from "./ui/TransparentModal";
+import { useGameControls } from "./hooks/gameControl";
 
 export const SnakeGame = () => {
   const engine = useRef<SnakeEngine>(null);
@@ -38,32 +35,12 @@ export const SnakeGame = () => {
     setTryCount((s) => s + 1);
   }, [sizeData.rows, sizeData.cols]);
 
-  useEffect(() => {
-    const keyDownHandler = (ev: KeyboardEvent) => {
-      switch (ev.key) {
-        case " ":
-          if (paused) {
-            restart();
-          }
-          break;
-        case "ArrowUp":
-          engine.current?.changeDirection("up");
-          break;
-        case "ArrowDown":
-          engine.current?.changeDirection("down");
-          break;
-        case "ArrowLeft":
-          engine.current?.changeDirection("left");
-          break;
-        case "ArrowRight":
-          engine.current?.changeDirection("right");
-          break;
-      }
-    };
-
-    document.addEventListener("keydown", keyDownHandler);
-    return () => document.removeEventListener("keydown", keyDownHandler);
-  }, [paused, sizeData, restart]);
+  const { touchStartHandler, touchMoveHandler, touchEndHandler } =
+    useGameControls({
+      onChangeDirection: (dir) => engine.current?.changeDirection(dir),
+      onPause: setPaused,
+      onRestart: restart,
+    });
 
   useEffect(() => {
     const tickHandler = () => {
@@ -90,48 +67,6 @@ export const SnakeGame = () => {
     const interval = setInterval(tickHandler, 140);
     return () => clearInterval(interval);
   }, [paused, bestScore]);
-
-  const touchData = useRef({ startX: -1, startY: -1 });
-
-  const touchStartHandler = (ev: React.TouchEvent) => {
-    const touch = ev.changedTouches[0];
-    touchData.current.startX = touch.clientX;
-    touchData.current.startY = touch.clientY;
-  };
-
-  const touchEndHandler = () => {
-    if (paused) {
-      restart();
-    }
-  };
-
-  const touchMoveHandler = (ev: React.TouchEvent) => {
-    ev.preventDefault();
-    const touch = ev.changedTouches[0];
-    const dx = touch.clientX - touchData.current.startX;
-    const dy = touch.clientY - touchData.current.startY;
-    const threshold = 30;
-
-    const changeDirection = (dir: SnakeDireactionType) => {
-      engine.current?.changeDirection(dir);
-      touchData.current.startX = touch.clientX;
-      touchData.current.startY = touch.clientY;
-    };
-
-    if (Math.abs(dx) > Math.abs(dy)) {
-      if (dx > threshold) {
-        changeDirection("right");
-      } else if (dx < -threshold) {
-        changeDirection("left");
-      }
-    } else {
-      if (dy > threshold) {
-        changeDirection("down");
-      } else if (dy < -threshold) {
-        changeDirection("up");
-      }
-    }
-  };
 
   return (
     <main
