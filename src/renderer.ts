@@ -1,7 +1,7 @@
 import type { Point, SnakeState } from "./types";
 
 const GRID_COLOR_1 = "#575757";
-const GRID_COLOR_2 = "#666666";
+const GRID_COLOR_2 = "#5E5E5E";
 
 export class Renderer {
   private ctx: CanvasRenderingContext2D;

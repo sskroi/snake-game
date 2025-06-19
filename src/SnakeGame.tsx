@@ -38,10 +38,12 @@ export const SnakeGame = () => {
   }, [sizeData]);
 
   const restart = useCallback(() => {
-    engine.current = new SnakeEngine(sizeData.rows, sizeData.cols);
-    setGameStatus(engine.current.getStatus());
-    setPaused(false);
-  }, [sizeData]);
+    if (paused) {
+      engine.current = new SnakeEngine(sizeData.rows, sizeData.cols);
+      setGameStatus(engine.current.getStatus());
+      setPaused(false);
+    }
+  }, [sizeData, paused]);
 
   const touchHandlers = useGameControls({
     onChangeDirection: (dir) => engine.current?.changeDirection(dir),
