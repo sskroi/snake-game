@@ -61,7 +61,7 @@ export class SnakeEngine {
   }
 
   private generateNewFood() {
-    let candidates: Point[] = [];
+    const candidates: Point[] = [];
 
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {

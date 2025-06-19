@@ -57,8 +57,8 @@ export class Renderer {
     this.rect("#E96929", s.food);
 
     if (s.gameStatus === "gameOver") {
-      let sz = this.cellSize;
-      let head = s.snake[0];
+      const sz = this.cellSize;
+      const head = s.snake[0];
       this.ctx.strokeStyle = "red";
       this.ctx.lineWidth = 3;
 
