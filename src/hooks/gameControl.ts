@@ -7,6 +7,8 @@ type GameControlCallbacks = {
   onPause: (paused: boolean) => void;
 };
 
+const SWIPE_THRESHOLD = 36;
+
 export function useGameControls({
   onChangeDirection,
   onRestart,
@@ -57,7 +59,6 @@ export function useGameControls({
     const touch = ev.changedTouches[0];
     const dx = touch.clientX - touchData.current.startX;
     const dy = touch.clientY - touchData.current.startY;
-    const threshold = 30;
 
     const changeDirection = (dir: DirectionType) => {
       onChangeDirection(dir);
@@ -66,15 +67,15 @@ export function useGameControls({
     };
 
     if (Math.abs(dx) > Math.abs(dy)) {
-      if (dx > threshold) {
+      if (dx > SWIPE_THRESHOLD) {
         changeDirection("right");
-      } else if (dx < -threshold) {
+      } else if (dx < -SWIPE_THRESHOLD) {
         changeDirection("left");
       }
     } else {
-      if (dy > threshold) {
+      if (dy > SWIPE_THRESHOLD) {
         changeDirection("down");
-      } else if (dy < -threshold) {
+      } else if (dy < -SWIPE_THRESHOLD) {
         changeDirection("up");
       }
     }
