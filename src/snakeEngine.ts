@@ -1,35 +1,10 @@
-type Point = { r: number; c: number };
+import type { Direction, GameStatus, Point, SnakeState } from "./types";
 
-const CT = {
-  EMPTY: "empty",
-  BODY: "body",
-  HEAD: "head",
-  FOOD: "food",
-  WALL: "wall",
-} as const;
-type CellType = (typeof CT)[keyof typeof CT];
-export type ToRenderCell = { type: CellType } & Point;
-
-const DIRECTION = {
-  UP: "up",
-  DOWN: "down",
-  LEFT: "left",
-  RIGHT: "right",
-} as const;
-export type DireactionType = (typeof DIRECTION)[keyof typeof DIRECTION];
-
-const STATUS = {
-  GAME_ON: "gameOn",
-  GAME_OVER: "gameOver",
-  EATEN: "eaten",
-} as const;
-type GameStatusType = (typeof STATUS)[keyof typeof STATUS];
-
-const OPPOSITE_DIRECTIONS: Record<DireactionType, DireactionType> = {
-  [DIRECTION.UP]: DIRECTION.DOWN,
-  [DIRECTION.DOWN]: DIRECTION.UP,
-  [DIRECTION.LEFT]: DIRECTION.RIGHT,
-  [DIRECTION.RIGHT]: DIRECTION.LEFT,
+const OPPOSITE_DIRECTIONS: Record<Direction, Direction> = {
+  up: "down",
+  down: "up",
+  left: "right",
+  right: "left",
 };
 
 const posEquals = (a: Point, b: Point) => a.r === b.r && a.c === b.c;
@@ -39,9 +14,8 @@ export class SnakeEngine {
   readonly cols: number;
   private snake: Point[];
   private food: Point;
-  private toRender: ToRenderCell[];
-  private direction: DireactionType;
-  private status: GameStatusType;
+  private direction: Direction;
+  private status: GameStatus;
 
   constructor(rows: number, cols: number) {
     if (rows < 5 || cols < 5) {
@@ -55,13 +29,8 @@ export class SnakeEngine {
     this.snake = [snakeHead, { r: snakeHead.r, c: snakeHead.c - 1 }];
 
     this.food = { r: snakeHead.r, c: snakeHead.c + (cols <= 6 ? 2 : 3) };
-    this.direction = DIRECTION.RIGHT;
-    this.status = STATUS.GAME_ON;
-    this.toRender = [
-      { ...this.food, type: CT.FOOD },
-      { ...snakeHead, type: CT.HEAD },
-      { ...this.snake[1], type: CT.BODY },
-    ];
+    this.direction = "right";
+    this.status = "gameOn";
   }
 
   getStatus() {
@@ -72,19 +41,23 @@ export class SnakeEngine {
     return Math.max(this.snake.length - 2, 0);
   }
 
-  getToRender() {
-    return this.toRender.slice();
+  getState(): SnakeState {
+    return {
+      gameStatus: this.status,
+      snake: this.snake,
+      food: this.food,
+      direction: this.direction,
+    };
   }
 
-  changeDirection(newDirection: DireactionType) {
+  changeDirection(newDirection: Direction) {
     if (OPPOSITE_DIRECTIONS[newDirection] !== this.direction) {
       this.direction = newDirection;
     }
   }
 
-  private unshiftSnake(v: Point) {
-    this.snake.unshift(v);
-    this.toRender.push({ ...v, type: CT.HEAD });
+  getDirection() {
+    return this.direction;
   }
 
   private generateNewFood() {
@@ -100,23 +73,22 @@ export class SnakeEngine {
     }
 
     this.food = candidates[Math.floor(Math.random() * candidates.length)];
-    this.toRender.push({ ...this.food, type: CT.FOOD });
   }
 
   private calcNewHeadPos() {
     const headPos: Point = { ...this.snake[0] };
 
     switch (this.direction) {
-      case DIRECTION.UP:
+      case "up":
         headPos.r -= 1;
         break;
-      case DIRECTION.DOWN:
+      case "down":
         headPos.r += 1;
         break;
-      case DIRECTION.LEFT:
+      case "left":
         headPos.c -= 1;
         break;
-      case DIRECTION.RIGHT:
+      case "right":
         headPos.c += 1;
         break;
     }
@@ -135,30 +107,26 @@ export class SnakeEngine {
     return this.snake.some((v) => posEquals(p, v));
   }
 
-  nextTick(): GameStatusType {
-    if (this.status === STATUS.GAME_OVER) {
+  nextTick(): GameStatus {
+    if (this.status === "gameOver") {
       throw new Error("can't play after game over");
     }
 
-    this.toRender.length = 0;
-
     const headPos = this.calcNewHeadPos();
 
-    this.toRender.push({ ...this.snake[0], type: CT.BODY });
-
     if (posEquals(headPos, this.food)) {
-      this.status = STATUS.EATEN;
+      this.status = "eaten";
       this.generateNewFood();
     } else {
-      this.status = STATUS.GAME_ON;
-      this.toRender.push({ ...this.snake.pop()!, type: CT.EMPTY });
+      this.status = "gameOn";
+      this.snake.pop();
     }
 
     if (this.isOutOfBounds(headPos) || this.isSnakeCell(headPos)) {
-      return (this.status = STATUS.GAME_OVER);
+      return (this.status = "gameOver");
     }
 
-    this.unshiftSnake(headPos);
+    this.snake.unshift(headPos);
 
     return this.status;
   }

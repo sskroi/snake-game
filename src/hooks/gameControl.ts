@@ -42,17 +42,17 @@ export function useGameControls({
   }, [onChangeDirection, onRestart, onPause]);
 
   // touch controls
-  const touchStartHandler = (ev: React.TouchEvent) => {
+  const onTouchStart = (ev: React.TouchEvent) => {
     const touch = ev.changedTouches[0];
     touchData.current.startX = touch.clientX;
     touchData.current.startY = touch.clientY;
   };
 
-  const touchEndHandler = () => {
+  const onTouchEnd = () => {
     onRestart();
   };
 
-  const touchMoveHandler = (ev: React.TouchEvent) => {
+  const onTouchMove = (ev: React.TouchEvent) => {
     ev.preventDefault();
     const touch = ev.changedTouches[0];
     const dx = touch.clientX - touchData.current.startX;
@@ -81,8 +81,8 @@ export function useGameControls({
   };
 
   return {
-    touchStartHandler,
-    touchMoveHandler,
-    touchEndHandler,
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd,
   };
 }

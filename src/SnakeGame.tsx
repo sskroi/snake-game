@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Board } from "./Board";
 import styles from "./SnakeGame.module.css";
-import { SnakeEngine, type ToRenderCell } from "./snakeEngine";
+import { SnakeEngine } from "./snakeEngine";
 import { TransparentModal } from "./ui/TransparentModal";
 import { useGameControls } from "./hooks/gameControl";
+import { Renderer } from "./renderer";
 
 export const SnakeGame = () => {
   const engine = useRef<SnakeEngine>(null);
-  const [toRender, setToRender] = useState<ToRenderCell[]>([]);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const renderer = useRef<Renderer>(null);
   const [gameStatus, setGameStatus] = useState("");
   const [paused, setPaused] = useState(true);
   const [bestScore, setBestScore] = useState(() =>
     localStorage.getItem("bestScore"),
   );
-  const [tryCount, setTryCount] = useState(1);
 
   const [sizeData, setSizeData] = useState({
     rows: 0,
@@ -23,24 +23,31 @@ export const SnakeGame = () => {
 
   useEffect(() => {
     const sizeData = calcBoardSize(window.innerWidth, window.innerHeight);
-
     setSizeData(sizeData);
   }, []);
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      renderer.current = new Renderer(
+        canvasRef.current,
+        sizeData.cellSize,
+        sizeData.rows,
+        sizeData.cols,
+      );
+    }
+  }, [sizeData]);
 
   const restart = useCallback(() => {
     engine.current = new SnakeEngine(sizeData.rows, sizeData.cols);
     setGameStatus(engine.current.getStatus());
-    setToRender(engine.current.getToRender());
     setPaused(false);
-    setTryCount((s) => s + 1);
-  }, [sizeData.rows, sizeData.cols]);
+  }, [sizeData]);
 
-  const { touchStartHandler, touchMoveHandler, touchEndHandler } =
-    useGameControls({
-      onChangeDirection: (dir) => engine.current?.changeDirection(dir),
-      onPause: setPaused,
-      onRestart: restart,
-    });
+  const touchHandlers = useGameControls({
+    onChangeDirection: (dir) => engine.current?.changeDirection(dir),
+    onPause: setPaused,
+    onRestart: restart,
+  });
 
   useEffect(() => {
     const tickHandler = () => {
@@ -50,6 +57,7 @@ export const SnakeGame = () => {
         !paused
       ) {
         const status = engine.current.nextTick();
+        renderer.current?.render(engine.current.getState());
         if (status === "gameOver") {
           setPaused(true);
 
@@ -59,7 +67,6 @@ export const SnakeGame = () => {
             localStorage.setItem("bestScore", score.toString());
           }
         }
-        setToRender(engine.current.getToRender());
         setGameStatus(status);
       }
     };
@@ -71,18 +78,10 @@ export const SnakeGame = () => {
   return (
     <main
       className={styles.snakeGame}
-      onTouchStart={touchStartHandler}
-      onTouchMove={touchMoveHandler}
-      onTouchEnd={touchEndHandler}
       style={{ touchAction: "none" }}
+      {...touchHandlers}
     >
-      <Board
-        key={tryCount.toString()}
-        toRender={toRender}
-        cellSize={sizeData.cellSize}
-        rows={sizeData.rows}
-        cols={sizeData.cols}
-      />
+      <canvas ref={canvasRef} className={styles.board} />
       <div className={styles.score}>SCORE: {engine.current?.getScore()}</div>
       <TransparentModal open={paused}>
         <div className={styles.modalText}>
