@@ -5,6 +5,8 @@ import { TransparentModal } from "./ui/TransparentModal";
 import { useGameControls } from "./hooks/gameControl";
 import { Renderer } from "./renderer";
 
+const TICK_RATE = 140;
+
 export const SnakeGame = () => {
   const engine = useRef<SnakeEngine>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -33,6 +35,7 @@ export const SnakeGame = () => {
         sizeData.cellSize,
         sizeData.rows,
         sizeData.cols,
+        TICK_RATE,
       );
     }
   }, [sizeData]);
@@ -59,7 +62,7 @@ export const SnakeGame = () => {
         !paused
       ) {
         const status = engine.current.nextTick();
-        renderer.current?.render(engine.current.getState());
+        renderer.current?.renderTick(engine.current.getState());
         if (status === "gameOver") {
           setPaused(true);
 
@@ -73,7 +76,7 @@ export const SnakeGame = () => {
       }
     };
 
-    const interval = setInterval(tickHandler, 140);
+    const interval = setInterval(tickHandler, TICK_RATE);
     return () => clearInterval(interval);
   }, [paused, bestScore]);
 

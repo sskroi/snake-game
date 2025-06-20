@@ -44,7 +44,7 @@ export class SnakeEngine {
   getState(): SnakeState {
     return {
       gameStatus: this.status,
-      snake: this.snake,
+      snake: this.snake.slice(),
       food: this.food,
       direction: this.direction,
     };

@@ -1,4 +1,4 @@
-import type { Point, SnakeState } from "./types";
+import type { Direction, Point, SnakeState } from "./types";
 
 const GRID_COLOR_1 = "#575757";
 const GRID_COLOR_2 = "#5E5E5E";
@@ -8,23 +8,38 @@ export class Renderer {
   private cellSize: number;
   private rows: number;
   private cols: number;
+  private tickRate: number;
+
+  private animCtx = {
+    startTime: -1,
+    curRAF: -1,
+  };
+
+  private curState: SnakeState | null = null;
+  private prevState: SnakeState | null = null;
 
   constructor(
     canvas: HTMLCanvasElement,
     cellSize: number,
     rows: number,
     cols: number,
+    tickRate: number,
   ) {
     this.ctx = canvas.getContext("2d")!;
     this.cellSize = cellSize;
     this.rows = rows;
     this.cols = cols;
+    this.tickRate = tickRate;
 
     canvas.height = rows * cellSize;
     canvas.width = cols * cellSize;
   }
 
-  private renderGrid() {
+  private cords(pos: Point) {
+    return { x: pos.c * this.cellSize, y: pos.r * this.cellSize };
+  }
+
+  private grid() {
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
         if ((r & 1) === (c & 1)) {
@@ -42,34 +57,130 @@ export class Renderer {
     }
   }
 
-  private rect(color: string, p: Point) {
-    this.ctx.fillStyle = color;
+  private gameOverCross(pos: Point) {
     const sz = this.cellSize;
-    this.ctx.fillRect(p.c * sz, p.r * sz, sz, sz);
+    this.ctx.strokeStyle = "red";
+    this.ctx.lineWidth = 3;
+
+    this.ctx.beginPath();
+    this.ctx.moveTo(pos.c * sz, pos.r * sz);
+    this.ctx.lineTo(pos.c * sz + sz, pos.r * sz + sz);
+    this.ctx.moveTo(pos.c * sz + sz - 1, pos.r * sz);
+    this.ctx.lineTo(pos.c * sz, pos.r * sz + sz - 1);
+    this.ctx.stroke();
   }
 
-  render(s: SnakeState) {
-    this.renderGrid();
+  private rectFromRowCol(color: string, pos: Point) {
+    this.ctx.fillStyle = color;
+    const sz = this.cellSize;
+    this.ctx.fillRect(pos.c * sz, pos.r * sz, sz, sz);
+  }
 
-    for (const v of s.snake) {
-      this.rect("#6CD757", v);
-    }
-    this.rect("#E96929", s.food);
+  private food() {
+    this.rectFromRowCol("#E96929", this.curState!.food);
+  }
 
-    if (s.gameStatus === "gameOver") {
-      const sz = this.cellSize;
-      const head = s.snake[0];
-      this.ctx.strokeStyle = "red";
-      this.ctx.lineWidth = 3;
-
-      this.ctx.beginPath();
-      this.ctx.moveTo(head.c * sz, head.r * sz);
-      this.ctx.lineTo(head.c * sz + sz, head.r * sz + sz);
-      this.ctx.moveTo(head.c * sz + sz - 1, head.r * sz);
-      this.ctx.lineTo(head.c * sz, head.r * sz + sz - 1);
-      this.ctx.stroke();
+  private getDirection(front: Point, back: Point): Direction {
+    if (front.r + 1 === back.r) {
+      return "up";
+    } else if (front.r - 1 === back.r) {
+      return "down";
+    } else if (front.c - 1 === back.c) {
+      return "right";
+    } else if (front.c + 1 === back.c) {
+      return "left";
     } else {
-      this.rect("#FFAB00", s.snake[0]);
+      throw new Error(
+        `Incorrect getDirection call with data: (${front.r} ${front.c}) (${back.r} ${back.c})`,
+      );
     }
+  }
+
+  private diff(cur: Point, prev: Point, offset: number, color: string) {
+    const pos = this.cords(prev);
+    switch (this.getDirection(cur, prev)) {
+      case "up":
+        pos.y -= offset;
+        break;
+      case "right":
+        pos.x += offset;
+        break;
+      case "down":
+        pos.y += offset;
+        break;
+      case "left":
+        pos.x -= offset;
+        break;
+    }
+
+    this.ctx.fillStyle = color;
+    this.ctx.fillRect(pos.x, pos.y, this.cellSize, this.cellSize);
+  }
+
+  private snake(offset: number) {
+    const snake = this.curState!.snake;
+
+    for (let i = 1; i < snake.length; i++) {
+      this.rectFromRowCol("#6CD757", snake[i]);
+    }
+
+    if (this.prevState && this.curState!.gameStatus !== "gameOver") {
+      this.diff(
+        this.curState!.snake[0],
+        this.prevState.snake[0],
+        offset,
+        "#FFAB00",
+      );
+    } else {
+      this.rectFromRowCol("#FFAB00", this.curState!.snake[0]);
+
+      if (this.curState!.gameStatus === "gameOver") {
+        this.gameOverCross(this.curState!.snake[0]);
+      }
+    }
+
+    let tail: Point;
+
+    if (!this.prevState) {
+      tail = this.curState!.snake.slice(-1)[0];
+    } else {
+      tail = this.prevState.snake.slice(-1)[0];
+      if (this.prevState.snake.length === this.curState!.snake.length) {
+        this.diff(this.curState!.snake.slice(-1)[0], tail, offset, "#6CD757");
+      } else {
+        this.rectFromRowCol("#6CD757", tail);
+      }
+    }
+  }
+
+  private rafHandler(curTime: DOMHighResTimeStamp) {
+    if (this.animCtx.startTime === -1) {
+      this.animCtx.startTime = curTime;
+    }
+
+    const progress = Math.min(
+      (curTime - this.animCtx.startTime) / this.tickRate,
+      1,
+    );
+    const offset = Math.round(progress * this.cellSize);
+
+    this.grid();
+    this.snake(offset);
+    this.food();
+
+    if (progress !== 1) {
+      this.animCtx.curRAF = requestAnimationFrame((t) => this.rafHandler(t));
+    }
+  }
+
+  renderTick(s: SnakeState) {
+    if (this.curState !== null) {
+      this.prevState = this.curState;
+    }
+    this.curState = s;
+
+    this.animCtx.startTime = -1;
+    cancelAnimationFrame(this.animCtx.curRAF);
+    this.animCtx.curRAF = requestAnimationFrame((t) => this.rafHandler(t));
   }
 }
