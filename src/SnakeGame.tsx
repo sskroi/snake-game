@@ -17,68 +17,84 @@ export const SnakeGame = () => {
     localStorage.getItem("bestScore"),
   );
 
-  const [sizeData, setSizeData] = useState({
-    rows: 0,
-    cols: 0,
-    cellSize: 0,
-  });
+  const [sizeData, setSizeData] = useState<{
+    rows: number;
+    cols: number;
+    cellSize: number;
+  } | null>(null);
 
   useEffect(() => {
     const sizeData = calcBoardSize(window.innerWidth, window.innerHeight);
     setSizeData(sizeData);
   }, []);
 
+  const restart = useCallback(
+    (unpause: boolean = true) => {
+      if (sizeData !== null && paused && canvasRef.current) {
+        engine.current = new SnakeEngine(sizeData.rows, sizeData.cols);
+
+        if (renderer.current === null) {
+          renderer.current = new Renderer(
+            canvasRef.current,
+            sizeData.cellSize,
+            sizeData.rows,
+            sizeData.cols,
+            TICK_RATE,
+          );
+        }
+
+        engine.current.subscribeStateUpdate((s) =>
+          renderer.current!.updateState(s),
+        );
+
+        if (unpause) {
+          setPaused(false);
+        }
+        setGameStatus(engine.current.getStatus());
+      }
+    },
+    [sizeData, paused],
+  );
+
   useEffect(() => {
-    if (canvasRef.current) {
-      renderer.current = new Renderer(
-        canvasRef.current,
-        sizeData.cellSize,
-        sizeData.rows,
-        sizeData.cols,
-        TICK_RATE,
-      );
-    }
-  }, [sizeData]);
-
-  const restart = useCallback(() => {
-    if (paused) {
-      engine.current = new SnakeEngine(sizeData.rows, sizeData.cols);
-      setGameStatus(engine.current.getStatus());
-      setPaused(false);
-    }
-  }, [sizeData, paused]);
-
-  const touchHandlers = useGameControls({
-    onChangeDirection: (dir) => engine.current?.changeDirection(dir),
-    onPause: setPaused,
-    onRestart: restart,
-  });
+    restart(false);
+  }, [restart]);
 
   useEffect(() => {
+    const gameOverHandler = () => {
+      setPaused(true);
+
+      const score = engine.current!.getScore();
+      if (bestScore === null || score > +bestScore) {
+        setBestScore(score.toString());
+        localStorage.setItem("bestScore", score.toString());
+      }
+    };
+
     const tickHandler = () => {
       if (
         engine.current &&
         engine.current.getStatus() !== "gameOver" &&
         !paused
       ) {
-        const status = engine.current.nextTick();
-        renderer.current?.renderTick(engine.current.getState());
-        if (status === "gameOver") {
-          setPaused(true);
+        const state = engine.current.nextTick();
 
-          const score = engine.current.getScore();
-          if (bestScore === null || score > +bestScore) {
-            setBestScore(score.toString());
-            localStorage.setItem("bestScore", score.toString());
-          }
+        if (state.status === "gameOver") {
+          gameOverHandler();
         }
-        setGameStatus(status);
+        setGameStatus(state.status);
       }
     };
 
     const interval = setInterval(tickHandler, TICK_RATE);
     return () => clearInterval(interval);
   }, [paused, bestScore]);
+
+  const touchHandlers = useGameControls({
+    onChangeDirection: (dir) => engine.current?.changeDirection(dir),
+    onPause: setPaused,
+    onRestart: restart,
+  });
 
   return (
     <main

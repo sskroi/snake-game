@@ -1,4 +1,4 @@
-import type { Direction, Point, SnakeState } from "./types";
+import type { Direction, Cell, SnakeState } from "./types";
 
 const GRID_COLOR_1 = "#575757";
 const GRID_COLOR_2 = "#5E5E5E";
@@ -35,7 +35,7 @@ export class Renderer {
     canvas.width = cols * cellSize;
   }
 
-  private cords(pos: Point) {
+  private cords(pos: Cell) {
     return { x: pos.c * this.cellSize, y: pos.r * this.cellSize };
   }
 
@@ -57,7 +57,7 @@ export class Renderer {
     }
   }
 
-  private gameOverCross(pos: Point) {
+  private gameOverCross(pos: Cell) {
     const sz = this.cellSize;
     this.ctx.strokeStyle = "red";
     this.ctx.lineWidth = 3;
@@ -70,7 +70,7 @@ export class Renderer {
     this.ctx.stroke();
   }
 
-  private rectFromRowCol(color: string, pos: Point) {
+  private rectFromRowCol(color: string, pos: Cell) {
     this.ctx.fillStyle = color;
     const sz = this.cellSize;
     this.ctx.fillRect(pos.c * sz, pos.r * sz, sz, sz);
@@ -80,7 +80,7 @@ export class Renderer {
     this.rectFromRowCol("#E96929", this.curState!.food);
   }
 
-  private getDirection(front: Point, back: Point): Direction {
+  private getDirection(front: Cell, back: Cell): Direction {
     if (front.r + 1 === back.r) {
       return "up";
     } else if (front.r - 1 === back.r) {
@@ -96,7 +96,7 @@ export class Renderer {
     }
   }
 
-  private diff(cur: Point, prev: Point, offset: number, color: string) {
+  private diff(cur: Cell, prev: Cell, offset: number, color: string) {
     const pos = this.cords(prev);
     switch (this.getDirection(cur, prev)) {
       case "up":
@@ -124,7 +124,7 @@ export class Renderer {
       this.rectFromRowCol("#6CD757", snake[i]);
     }
 
-    if (this.prevState && this.curState!.gameStatus !== "gameOver") {
+    if (this.prevState && this.curState!.status !== "gameOver") {
       this.diff(
         this.curState!.snake[0],
         this.prevState.snake[0],
@@ -134,12 +134,12 @@ export class Renderer {
     } else {
       this.rectFromRowCol("#FFAB00", this.curState!.snake[0]);
 
-      if (this.curState!.gameStatus === "gameOver") {
+      if (this.curState!.status === "gameOver") {
         this.gameOverCross(this.curState!.snake[0]);
       }
     }
 
-    let tail: Point;
+    let tail: Cell;
 
     if (!this.prevState) {
       tail = this.curState!.snake.slice(-1)[0];
@@ -173,7 +173,7 @@ export class Renderer {
     }
   }
 
-  renderTick(s: SnakeState) {
+  updateState(s: SnakeState) {
     if (this.curState !== null) {
       this.prevState = this.curState;
     }

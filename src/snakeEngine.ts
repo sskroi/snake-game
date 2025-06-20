@@ -1,4 +1,5 @@
-import type { Direction, GameStatus, Point, SnakeState } from "./types";
+import { cloneDeep } from "lodash";
+import type { Direction, GameStatus, Cell, SnakeState } from "./types";
 
 const OPPOSITE_DIRECTIONS: Record<Direction, Direction> = {
   up: "down",
@@ -7,15 +8,23 @@ const OPPOSITE_DIRECTIONS: Record<Direction, Direction> = {
   right: "left",
 };
 
-const posEquals = (a: Point, b: Point) => a.r === b.r && a.c === b.c;
+type StateUpdateListener = (state: SnakeState) => void;
+
+const posEquals = (a: Cell, b: Cell) => a.r === b.r && a.c === b.c;
 
 export class SnakeEngine {
   readonly rows: number;
   readonly cols: number;
-  private snake: Point[];
-  private food: Point;
-  private direction: Direction;
+
+  private snake: Cell[];
+  private food: Cell;
+
+  private directionQueue: Direction[];
+
+  private tick = 0;
   private status: GameStatus;
+
+  private subscribers: StateUpdateListener[] = [];
 
   constructor(rows: number, cols: number) {
     if (rows < 5 || cols < 5) {
@@ -25,11 +34,11 @@ export class SnakeEngine {
     this.rows = rows;
     this.cols = cols;
 
-    const snakeHead: Point = { r: Math.floor(rows / 2), c: cols <= 6 ? 1 : 2 };
+    const snakeHead: Cell = { r: Math.floor(rows / 2), c: cols <= 6 ? 1 : 2 };
     this.snake = [snakeHead, { r: snakeHead.r, c: snakeHead.c - 1 }];
 
     this.food = { r: snakeHead.r, c: snakeHead.c + (cols <= 6 ? 2 : 3) };
-    this.direction = "right";
+    this.directionQueue = ["right"];
     this.status = "gameOn";
   }
 
@@ -43,25 +52,28 @@ export class SnakeEngine {
 
   getState(): SnakeState {
     return {
-      gameStatus: this.status,
-      snake: this.snake.slice(),
+      status: this.status,
+      snake: cloneDeep(this.snake),
       food: this.food,
-      direction: this.direction,
+      direction: this.directionQueue[0],
+      tick: this.tick,
     };
   }
 
   changeDirection(newDirection: Direction) {
-    if (OPPOSITE_DIRECTIONS[newDirection] !== this.direction) {
-      this.direction = newDirection;
+    if (
+      OPPOSITE_DIRECTIONS[newDirection] !== this.directionQueue.slice(-1)[0]
+    ) {
+      this.directionQueue.push(newDirection);
     }
   }
 
   getDirection() {
-    return this.direction;
+    return this.directionQueue;
   }
 
   private generateNewFood() {
-    const candidates: Point[] = [];
+    const candidates: Cell[] = [];
 
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
@@ -76,9 +88,14 @@ export class SnakeEngine {
   }
 
   private calcNewHeadPos() {
-    const headPos: Point = { ...this.snake[0] };
+    const headPos: Cell = { ...this.snake[0] };
 
-    switch (this.direction) {
+    if (this.directionQueue.length > 1) {
+      this.directionQueue.shift();
+    }
+    const direction = this.directionQueue[0];
+
+    switch (direction) {
       case "up":
         headPos.r -= 1;
         break;
@@ -96,21 +113,22 @@ export class SnakeEngine {
     return headPos;
   }
 
-  private isOutOfBounds(p: Point) {
+  private isOutOfBounds(p: Cell) {
     if (p.r < 0 || p.r >= this.rows || p.c < 0 || p.c >= this.cols) {
       return true;
     }
     return false;
   }
 
-  private isSnakeCell(p: Point) {
+  private isSnakeCell(p: Cell) {
     return this.snake.some((v) => posEquals(p, v));
   }
 
-  nextTick(): GameStatus {
+  nextTick(): SnakeState {
     if (this.status === "gameOver") {
       throw new Error("can't play after game over");
     }
+    this.tick++;
 
     const headPos = this.calcNewHeadPos();
 
@@ -123,11 +141,26 @@ export class SnakeEngine {
     }
 
     if (this.isOutOfBounds(headPos) || this.isSnakeCell(headPos)) {
-      return (this.status = "gameOver");
+      this.status = "gameOver";
+    } else {
+      this.snake.unshift(headPos);
     }
 
-    this.snake.unshift(headPos);
+    this.sendUpdates();
+    return this.getState();
+  }
 
-    return this.status;
+  private sendUpdates() {
+    for (const listener of this.subscribers) {
+      listener(this.getState());
+    }
+  }
+
+  subscribeStateUpdate(listener: StateUpdateListener) {
+    this.subscribers.push(listener);
+  }
+
+  unsubscribeStateUpdate(listener: StateUpdateListener) {
+    this.subscribers = this.subscribers.filter((v) => v !== listener);
   }
 }
