@@ -24,15 +24,19 @@ export function useGameControls({
           onPause(false);
           onRestart();
           break;
+        case "KeyW":
         case "ArrowUp":
           onChangeDirection("up");
           break;
+        case "KeyS":
         case "ArrowDown":
           onChangeDirection("down");
           break;
+        case "KeyA":
         case "ArrowLeft":
           onChangeDirection("left");
           break;
+        case "KeyD":
         case "ArrowRight":
           onChangeDirection("right");
           break;
