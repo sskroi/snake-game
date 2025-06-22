@@ -33,15 +33,13 @@ export const SnakeGame = () => {
       if (sizeData !== null && paused && canvasRef.current) {
         engine.current = new SnakeEngine(sizeData.rows, sizeData.cols);
 
-        if (renderer.current === null) {
-          renderer.current = new Renderer(
-            canvasRef.current,
-            sizeData.cellSize,
-            sizeData.rows,
-            sizeData.cols,
-            TICK_RATE,
-          );
-        }
+        renderer.current = new Renderer(
+          canvasRef.current,
+          sizeData.cellSize,
+          sizeData.rows,
+          sizeData.cols,
+          TICK_RATE,
+        );
 
         engine.current.subscribeStateUpdate((s) =>
           renderer.current!.updateState(s),
@@ -58,7 +56,7 @@ export const SnakeGame = () => {
 
   useEffect(() => {
     restart(false);
-  }, [restart]);
+  }, [sizeData]);
 
   useEffect(() => {
     const gameOverHandler = () => {
