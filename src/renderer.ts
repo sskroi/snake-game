@@ -1,4 +1,3 @@
-import { get } from "lodash";
 import type { Direction, Cell, SnakeState } from "./types";
 import { OPPOSITE_DIRECTION } from "./utils";
 
