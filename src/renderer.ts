@@ -1,4 +1,6 @@
+import { get } from "lodash";
 import type { Direction, Cell, SnakeState } from "./types";
+import { OPPOSITE_DIRECTION } from "./utils";
 
 const GRID_COLOR_1 = "#575757";
 const GRID_COLOR_2 = "#5E5E5E";
@@ -7,7 +9,7 @@ type Point = { x: number; y: number };
 
 const SNAKE_COLOR = "#6CD757";
 
-const cellEquals = (a: Cell, b: Cell) => a.r === b.r && a.c === b.c;
+// const cellEquals = (a: Cell, b: Cell) => a.r === b.r && a.c === b.c;
 
 type DirectionNone = Direction | "none";
 
@@ -114,31 +116,6 @@ export class Renderer {
     this.ctx.fillRect(pos.x, pos.y, this.cellSize, this.cellSize);
   }
 
-  private isAngleMidCell(i: number) {
-    const a = this.curSt!.snake[i - 1];
-    const b = this.curSt!.snake[i + 1];
-    return a.c !== b.c && a.r !== b.r;
-  }
-
-  private borderPoint(base: Cell, to: Cell): Point {
-    const sz = this.cellSize;
-    const baseX = base.c * sz;
-    const baseY = base.r * sz;
-    const offset = sz / 2;
-    switch (getDirection(base, to)) {
-      case "up":
-        return { x: baseX + offset, y: baseY };
-      case "right":
-        return { x: baseX + sz, y: baseY + offset };
-      case "down":
-        return { x: baseX + offset, y: baseY + sz };
-      case "left":
-        return { x: baseX, y: baseY + offset };
-      default:
-        return { x: baseX, y: baseY };
-    }
-  }
-
   private snakeMidChunk(
     stCell: Cell,
     midCell: Cell,
@@ -146,10 +123,19 @@ export class Renderer {
     width: number,
   ) {
     const c = this.ctx;
+    const sz = this.cellSize;
 
-    const st = this.borderPoint(midCell, stCell);
-    const end = this.borderPoint(midCell, endCell);
     const mid = this.midPointFromCell(midCell);
+    const st = moveToDirection(
+      { ...mid },
+      getDirection(midCell, stCell),
+      sz / 2,
+    );
+    const end = moveToDirection(
+      { ...mid },
+      getDirection(midCell, endCell),
+      sz / 2,
+    );
 
     c.beginPath();
     c.moveTo(st.x, st.y);
@@ -159,54 +145,67 @@ export class Renderer {
     c.stroke();
   }
 
+  // last 2 cells
   private tail(
-    beforeCell: Cell,
+    beforeTailDir: Direction,
+    beforeTail: Cell,
     tail: Cell,
     offset: number,
     width: number,
     color: string,
   ) {
-    let startAngle: number, endAngle: number;
-    const pi = Math.PI;
+    const p1 = this.midPointFromCell(beforeTail);
+    const p0 = moveToDirection({ ...p1 }, beforeTailDir, this.cellSize / 2);
+    const p2 = moveToDirection(
+      { ...p1 },
+      getDirection(beforeTail, tail),
+      this.cellSize / 2 - offset / 2,
+    );
+    const p3 = moveToDirection(
+      this.midPointFromCell(tail),
+      getDirection(tail, beforeTail),
+      offset,
+    );
 
-    const pos = this.midPointFromCell(tail);
-    const dir = getDirection(tail, beforeCell);
-    moveToDirection(pos, dir, offset);
-    const lineEndPos = moveToDirection({ ...pos }, dir, width / 2 + 3);
+    // const pos = this.midPointFromCell(tail);
+    // moveToDirection(pos, dir, offset);
+    // const lineEndPos = moveToDirection({ ...pos }, dir, width / 2 + 3);
+    //
 
-    switch (dir) {
-      case "up":
-        startAngle = 0;
-        endAngle = -pi;
-        break;
-      case "none":
-      case "right":
-        startAngle = pi / 2;
-        endAngle = pi * 1.5;
-        break;
-      case "down":
-        startAngle = pi;
-        endAngle = pi * 2;
-        break;
-      case "left":
-        startAngle = pi * 1.5;
-        endAngle = pi / 2;
-        break;
-    }
+    const dir = getDirection(tail, beforeTail);
+    const { startAngle, endAngle } = semicircleAngleByDirection(
+      OPPOSITE_DIRECTION[dir],
+    );
 
     const c = this.ctx;
-    c.beginPath();
-    c.arc(pos.x, pos.y, width / 2, startAngle, endAngle);
-    c.closePath();
-    c.fillStyle = color;
-    c.fill();
-
-    c.beginPath();
-    c.moveTo(pos.x, pos.y);
-    c.lineTo(lineEndPos.x, lineEndPos.y);
     c.lineWidth = width;
     c.strokeStyle = color;
+    c.fillStyle = "red";
+    c.strokeStyle = "red";
+    c.beginPath();
+    c.arc(p3.x, p3.y, width / 2, startAngle, endAngle);
+    c.closePath();
+    c.fill();
+    c.beginPath();
+    c.moveTo(p0.x, p0.y);
+    c.bezierCurveTo(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
     c.stroke();
+
+    // c.fillStyle = "blue";
+    // c.fillRect(p0.x - 2, p0.y - 2, 4, 4);
+    // c.fillStyle = "red";
+    // c.fillRect(p1.x - 2, p1.y - 2, 4, 4);
+    // c.fillStyle = "purple";
+    // c.fillRect(p2.x - 2, p2.y - 2, 4, 4);
+    // c.fillStyle = "yellow";
+    // c.fillRect(p3.x - 2, p3.y - 2, 4, 4);
+
+    // c.lineCap = "butt";
+
+    // c.beginPath();
+    // c.moveTo(pos.x, pos.y);
+    // c.lineTo(lineEndPos.x, lineEndPos.y);
+    // c.stroke();
   }
 
   private snake(offset: number) {
@@ -227,15 +226,9 @@ export class Renderer {
       }
     }
 
-    // let tail: Cell;
-
-    // if (!this.pTickSt) {
-    //   tail = this.curSt!.snake.at(-1)!;
-    // } else {
-    // tail = this.pTickSt.snake.at(-1)!;
-    // if (this.pTickSt.snake.length === this.curSt!.snake.length) {
     if (this.pTickSt && this.curSt!.status !== "eaten") {
       this.tail(
+        getDirection(this.curSt!.snake.at(-1)!, this.curSt!.snake.at(-2)!),
         this.curSt!.snake.at(-1)!,
         this.pTickSt!.snake.at(-1)!,
         offset,
@@ -243,26 +236,6 @@ export class Renderer {
         "#6CD757",
       );
     }
-
-    // if (this.pTickSt && this.curSt!.status !== "eaten") {
-    //   this.snakeMidChunk(
-    //     snake.at(-2)!,
-    //     snake.at(-1)!,
-    //     this.pTickSt.snake.at(-1)!,
-    //     curWidth,
-    //   );
-    // }
-
-    // this.snakeMidChunk(
-    //   snake.at(-2)!,
-    //   snake.at(-1)!,
-    //   this.pTickSt.snake.at(-1)!,
-    //   curWidth,
-    // );
-    // } else {
-    //   this.rectFromCell("#6CD757", tail);
-    // }
-    // }
   }
 
   private tickAnimProgress(t: DOMHighResTimeStamp) {
@@ -299,7 +272,7 @@ export class Renderer {
   }
 }
 
-function getDirection(base: Cell, to: Cell): DirectionNone {
+function getDirection(base: Cell, to: Cell): Direction {
   if (to.r + 1 === base.r) {
     return "up";
   } else if (to.r - 1 === base.r) {
@@ -308,8 +281,6 @@ function getDirection(base: Cell, to: Cell): DirectionNone {
     return "right";
   } else if (to.c + 1 === base.c) {
     return "left";
-  } else if (cellEquals(base, to)) {
-    return "none";
   } else {
     throw new Error(
       `Incorrect getDirection call with data: (${base.r} ${base.c}) (${to.r} ${to.c})`,
@@ -335,8 +306,33 @@ function moveToDirection(
     case "left":
       pos.x -= offset;
       break;
-    case "none":
-      break;
   }
   return pos;
+}
+
+function semicircleAngleByDirection(direction: Direction) {
+  let startAngle = 0;
+  let endAngle = 0;
+  const PI = Math.PI;
+
+  switch (direction) {
+    case "down":
+      startAngle = 0;
+      endAngle = -PI;
+      break;
+    case "left":
+      startAngle = PI / 2;
+      endAngle = PI * 1.5;
+      break;
+    case "up":
+      startAngle = PI;
+      endAngle = PI * 2;
+      break;
+    case "right":
+      startAngle = PI * 1.5;
+      endAngle = PI / 2;
+      break;
+  }
+
+  return { startAngle, endAngle };
 }

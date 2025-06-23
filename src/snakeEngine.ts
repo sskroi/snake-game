@@ -1,12 +1,6 @@
 import { cloneDeep } from "lodash";
 import type { Direction, GameStatus, Cell, SnakeState } from "./types";
-
-const OPPOSITE_DIRECTIONS: Record<Direction, Direction> = {
-  up: "down",
-  down: "up",
-  left: "right",
-  right: "left",
-};
+import { OPPOSITE_DIRECTION } from "./utils";
 
 type StateUpdateListener = (state: SnakeState) => void;
 
@@ -61,9 +55,7 @@ export class SnakeEngine {
   }
 
   changeDirection(newDirection: Direction) {
-    if (
-      OPPOSITE_DIRECTIONS[newDirection] !== this.directionQueue.slice(-1)[0]
-    ) {
+    if (OPPOSITE_DIRECTION[newDirection] !== this.directionQueue.slice(-1)[0]) {
       this.directionQueue.push(newDirection);
     }
   }
